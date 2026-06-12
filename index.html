@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pathway — Student Academic Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.383.0/dist/umd/lucide.js"></script>
+<style>
+  :root{
+    --ink:#1E1B4B;
+    --paper:#FAF8F4;
+    --coral:#FF6B5B;
+    --sage:#7C9885;
+    --amber:#F4A259;
+    --sky:#5B8DEF;
+    --line:#E8E4DC;
+    --card:#FFFFFF;
+  }
+  *{font-family:'Inter',sans-serif;}
+  .font-display{font-family:'Space Grotesk',sans-serif;}
+  .font-mono{font-family:'JetBrains Mono',monospace;}
+  body{background:var(--paper);}
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-thumb{background:#D8D2C5;border-radius:10px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  .glass{background:rgba(255,255,255,0.65);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.5);}
+  .glass-dark{background:rgba(30,27,75,0.55);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);}
+  @keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(124,152,133,0.5);}70%{box-shadow:0 0 0 8px rgba(124,152,133,0);}100%{box-shadow:0 0 0 0 rgba(124,152,133,0);}}
+  .pulse{animation:pulse-ring 2s infinite;}
+  @keyframes float-in{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .float-in{animation:float-in 0.4s ease-out both;}
+  @keyframes shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+  .shimmer{background:linear-gradient(90deg,#FF6B5B,#F4A259,#FF6B5B);background-size:200% auto;animation:shimmer 3s linear infinite;-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .scrollbar-none::-webkit-scrollbar{display:none;}
+  .scrollbar-none{-ms-overflow-style:none;scrollbar-width:none;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useMemo } = React;
+
+// ---------- ICON HELPER ----------
+const I = ({ name, size = 18, className = "", style = {} }) => {
+  return <i data-lucide={name} style={{width: size, height: size, display: 'inline-flex', flexShrink: 0, ...style}} className={className}></i>;
+};
+
+// Re-render lucide icons after every paint
+const useLucideRefresh = () => {
+  useEffect(() => {
+    if (window.lucide && window.lucide.createIcons) {
+      window.lucide.createIcons();
+    }
+  });
+};
+
+// ---------- MOCK DATA ----------
+const SUBJECTS = [
+  { id: "math", name: "Engineering Mathematics", color: "#5B8DEF", icon: "sigma", topics: ["Differential Equations","Matrices","Laplace Transform"] },
+  { id: "phy", name: "Engineering Physics", color: "#7C9885", icon: "atom", topics: ["Wave Optics","Quantum Physics","Semiconductor Physics"] },
+  { id: "chem", name: "Engineering Chemistry", color: "#F4A259", icon: "flask-conical", topics: ["Water Technology","Electrochemistry","Polymers"] },
+  { id: "c", name: "Programming in C", color: "#FF6B5B", icon: "code-2", topics: ["Arrays","Functions","Pointers"] },
+  { id: "eee", name: "Basic Electrical Engineering", color: "#9B6BFF", icon: "zap", topics: ["DC Circuits","AC Fundamentals","Transformers"] },
+];
+
+const ASSIGNMENTS = [
+  { id: 1, title: "Solve Laplace Transform Problem Set 3", subject: "math", desc: "Questions 1-10 from Unit 4, focus on inverse transforms.", due: "2026-06-13", priority: "High", status: "Pending" },
+  { id: 2, title: "Lab Report — Diffraction Experiment", subject: "phy", desc: "Write up observations and calculations from the wave optics lab.", due: "2026-06-14", priority: "Medium", status: "In Progress" },
+  { id: 3, title: "Polymer Classification Chart", subject: "chem", desc: "Create a chart classifying 10 common polymers by structure.", due: "2026-06-18", priority: "Low", status: "Pending" },
+  { id: 4, title: "Pointer Arithmetic Exercises", subject: "c", desc: "Implement 5 programs demonstrating pointer arithmetic with arrays.", due: "2026-06-12", priority: "High", status: "In Progress" },
+  { id: 5, title: "AC Circuit Analysis Worksheet", subject: "eee", desc: "Solve RLC circuit problems using phasor diagrams.", due: "2026-06-20", priority: "Medium", status: "Completed" },
+  { id: 6, title: "Matrix Diagonalization Practice", subject: "math", desc: "Diagonalize the given 3x3 matrices and verify eigenvalues.", due: "2026-06-25", priority: "Medium", status: "Pending" },
+];
+
+const CAS = [
+  { id: 1, name: "CA-2", subject: "math", date: "2026-06-16", time: "10:00 AM", venue: "Room 204", topics: ["Differential Equations","Matrices"] },
+  { id: 2, name: "CA-2", subject: "phy", date: "2026-06-19", time: "02:00 PM", venue: "Room 110", topics: ["Wave Optics","Quantum Physics"] },
+  { id: 3, name: "CA-1", subject: "c", date: "2026-06-12", time: "09:00 AM", venue: "Lab 3", topics: ["Arrays","Functions"] },
+  { id: 4, name: "CA-2", subject: "eee", date: "2026-06-22", time: "11:00 AM", venue: "Room 301", topics: ["DC Circuits","AC Fundamentals"] },
+];
+
+const ONLINE_STUDENTS = [
+  { id: "u1", name: "Aarav Mehta", avatar: "AM", color: "#5B8DEF", level: "🔥 Academic Mentor", status: "online" },
+  { id: "u2", name: "Priya Sharma", avatar: "PS", color: "#FF6B5B", level: "🏆 Top Contributor", status: "online" },
+  { id: "u3", name: "Rohan Das", avatar: "RD", color: "#7C9885", level: "📚 Study Buddy", status: "online" },
+  { id: "u4", name: "Sneha Iyer", avatar: "SI", color: "#F4A259", level: "🌱 Beginner Helper", status: "away" },
+  { id: "u5", name: "Kabir Singh", avatar: "KS", color: "#9B6BFF", level: "📚 Study Buddy", status: "online" },
+];
+
+const COMMUNITY_MESSAGES = [
+  { id: 1, user: ONLINE_STUDENTS[1], text: "Hey everyone! Anyone free to discuss the Laplace Transform assignment? Stuck on Q4 😩", time: "10:42 AM", room: "general" },
+  { id: 2, user: ONLINE_STUDENTS[0], text: "@Priya Sharma sure, I solved that one yesterday. The trick is to use partial fractions first.", time: "10:45 AM", room: "general" },
+  { id: 3, user: ONLINE_STUDENTS[2], text: "Sharing my notes on Semiconductor Physics, might help for CA-2!", time: "11:02 AM", room: "general", attachment: { type: "pdf", name: "Semiconductor_Notes_Unit3.pdf", size: "2.4 MB" } },
+  { id: 4, user: ONLINE_STUDENTS[4], text: "Found a great YouTube playlist for AC Fundamentals, super clear explanations", time: "11:15 AM", room: "general", link: { title: "AC Circuit Analysis — Full Course", url: "youtube.com/playlist", type: "youtube" } },
+];
+
+const DOUBTS = [
+  { id: 1, title: "Need help solving Laplace Transform Question", subject: "math", author: ONLINE_STUDENTS[1], desc: "Can someone explain Question 4 from Assignment 3? I keep getting a different answer for the inverse transform.", status: "In Progress", replies: 3, time: "2h ago" },
+  { id: 2, title: "Difference between conductors, insulators & semiconductors at quantum level?", subject: "phy", author: ONLINE_STUDENTS[3], desc: "Our professor mentioned band gaps but I didn't fully understand the energy band diagram.", status: "Solved", replies: 5, time: "5h ago", bestAnswer: ONLINE_STUDENTS[0] },
+  { id: 3, title: "Pointer to pointer confusion in C", subject: "c", author: ONLINE_STUDENTS[4], desc: "When do we actually need a double pointer? Got a segfault trying to modify a pointer inside a function.", status: "Unsolved", replies: 0, time: "20m ago" },
+  { id: 4, title: "Electrochemistry — Nernst equation application", subject: "chem", author: ONLINE_STUDENTS[2], desc: "How do we apply the Nernst equation for concentration cells? Example from PYQ 2024 needed.", status: "Unsolved", replies: 1, time: "1h ago" },
+];
+
+const RESOURCES = [
+  { id: 1, title: "Complete Formula Sheet — Engineering Mathematics", subject: "math", type: "Formula Sheet", uploader: ONLINE_STUDENTS[0], upvotes: 47 },
+  { id: 2, title: "Wave Optics Cheat Sheet (Hand-written)", subject: "phy", type: "Cheat Sheet", uploader: ONLINE_STUDENTS[2], upvotes: 32 },
+  { id: 3, title: "C Programming — Pointers Explained Simply", subject: "c", type: "Notes", uploader: ONLINE_STUDENTS[1], upvotes: 58 },
+  { id: 4, title: "PYQ Compilation 2023-2025 — All Subjects", subject: "math", type: "PYQ", uploader: ONLINE_STUDENTS[4], upvotes: 89 },
+];
+
+const NOTIFICATIONS = [
+  { id: 1, type: "deadline", text: "Pointer Arithmetic Exercises due tomorrow", time: "1h ago", read: false, priority: "high" },
+  { id: 2, type: "ca", text: "CA-1 Programming in C scheduled for tomorrow, 9:00 AM", time: "2h ago", read: false, priority: "high" },
+  { id: 3, type: "community", text: "Aarav Mehta replied to your doubt", time: "3h ago", read: false, priority: "medium" },
+  { id: 4, type: "material", text: "New notes uploaded for Wave Optics", time: "5h ago", read: true, priority: "low" },
+  { id: 5, type: "community", text: "You received Best Answer on 'Quantum levels' doubt", time: "1d ago", read: true, priority: "medium" },
+];
+
+const subjectById = (id) => SUBJECTS.find(s => s.id === id);
+const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const daysUntil = (d) => Math.ceil((new Date(d) - new Date('2026-06-11')) / (1000*60*60*24));
+
+// ---------- SIDEBAR ----------
+const NAV_ITEMS = [
+  { id: "dashboard", label: "Dashboard", icon: "layout-dashboard" },
+  { id: "assignments", label: "Assignments", icon: "clipboard-list" },
+  { id: "cas", label: "CAs", icon: "file-check-2" },
+  { id: "pyqs", label: "PYQs", icon: "archive" },
+  { id: "material", label: "Study Material", icon: "book-open" },
+  { id: "calendar", label: "Calendar", icon: "calendar-days" },
+  { id: "community", label: "Help Each Other", icon: "heart-handshake" },
+  { id: "notifications", label: "Notifications", icon: "bell" },
+  { id: "settings", label: "Settings", icon: "settings" },
+];
+
+function Sidebar({ page, setPage, collapsed, setCollapsed, user }) {
+  return (
+    <aside className={`fixed left-0 top-0 h-screen z-40 transition-all duration-300 ${collapsed ? "w-20" : "w-64"} bg-[#1E1B4B] text-white flex flex-col`}>
+      <div className="flex items-center justify-between px-5 py-6">
+        {!collapsed && (
+          <div className="flex items-center gap-2 float-in">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF6B5B] to-[#F4A259] flex items-center justify-center font-display font-bold text-sm">P</div>
+            <span className="font-display font-semibold text-lg tracking-tight">Pathway</span>
+          </div>
+        )}
+        {collapsed && <div className="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-[#FF6B5B] to-[#F4A259] flex items-center justify-center font-display font-bold text-sm">P</div>}
+        <button onClick={() => setCollapsed(!collapsed)} className={`text-white/40 hover:text-white transition-colors ${collapsed ? "hidden" : ""}`}>
+          <I name="panel-left-close" size={18} />
+        </button>
+      </div>
+
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto scrollbar-none">
+        {NAV_ITEMS.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setPage(item.id)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group relative
+              ${page === item.id ? "bg-white/10 text-white" : "text-white/50 hover:text-white hover:bg-white/5"}`}
+          >
+            <I name={item.icon} size={18} className={page === item.id ? "text-[#FF6B5B]" : ""} />
+            {!collapsed && <span className="font-medium">{item.label}</span>}
+            {page === item.id && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#FF6B5B] rounded-r-full"></div>}
+            {item.id === "notifications" && !collapsed && (
+              <span className="ml-auto w-5 h-5 rounded-full bg-[#FF6B5B] text-[10px] font-bold flex items-center justify-center">3</span>
+            )}
+            {collapsed && (
+              <span className="absolute left-full ml-2 px-2 py-1 bg-[#1E1B4B] rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-xl">
+                {item.label}
+              </span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {collapsed && (
+        <button onClick={() => setCollapsed(false)} className="mx-auto mb-2 text-white/40 hover:text-white">
+          <I name="panel-left-open" size={18} />
+        </button>
+      )}
+
+      <div className={`p-3 border-t border-white/10 ${collapsed ? "flex justify-center" : ""}`}>
+        <div className={`flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors ${collapsed ? "" : "w-full"}`}>
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#5B8DEF] to-[#9B6BFF] flex items-center justify-center font-display font-semibold text-sm shrink-0">
+            {user.avatar}
+          </div>
+          {!collapsed && (
+            <div className="flex-1 min-w-0 float-in">
+              <p className="text-sm font-medium truncate">{user.name}</p>
+              <p className="text-xs text-white/40 truncate">Sem {user.semester} • {user.branch}</p>
+            </div>
+          )}
+          {!collapsed && (
+            <button className="text-white/40 hover:text-[#FF6B5B] transition-colors" title="Logout">
+              <I name="log-out" size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// ---------- SHARED UI ----------
+function Topbar({ title, subtitle, search, setSearch, user }) {
+  return (
+    <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+      <div>
+        <h1 className="font-display text-2xl md:text-3xl font-semibold text-[#1E1B4B]">{title}</h1>
+        {subtitle && <p className="text-sm text-[#1E1B4B]/50 mt-1">{subtitle}</p>}
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="relative hidden sm:block">
+          <I name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1E1B4B]/30" />
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search everything..."
+            className="pl-9 pr-4 py-2 rounded-xl bg-white border border-[var(--line)] text-sm w-64 focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/30 focus:border-[#FF6B5B] transition-all"
+          />
+        </div>
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5B8DEF] to-[#9B6BFF] flex items-center justify-center font-display font-semibold text-white text-sm shrink-0">
+          {user.avatar}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ icon, label, value, sub, color, delay }) {
+  return (
+    <div className="glass rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow float-in" style={{ animationDelay: `${delay}ms` }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${color}1A` }}>
+          <I name={icon} size={18} className="" />
+        </div>
+        {sub && <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ background: `${color}1A`, color }}>{sub}</span>}
+      </div>
+      <p className="font-display text-3xl font-semibold text-[#1E1B4B]">{value}</p>
+      <p className="text-sm text-[#1E1B4B]/50 mt-1">{label}</p>
+    </div>
+  );
+}
+
+function PriorityDot({ priority }) {
+  const colors = { High: "#FF6B5B", Medium: "#F4A259", Low: "#7C9885" };
+  return <span className="w-2 h-2 rounded-full inline-block" style={{ background: colors[priority] }}></span>;
+}
+
+function StatusBadge({ status }) {
+  const map = {
+    Completed: "bg-[#7C9885]/15 text-[#7C9885]",
+    "In Progress": "bg-[#5B8DEF]/15 text-[#5B8DEF]",
+    Pending: "bg-[#F4A259]/15 text-[#F4A259]",
+    Solved: "bg-[#7C9885]/15 text-[#7C9885]",
+    Unsolved: "bg-[#FF6B5B]/15 text-[#FF6B5B]",
+  };
+  return <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${map[status] || "bg-gray-100 text-gray-500"}`}>{status}</span>;
+}
+
+// ---------- DASHBOARD ----------
+function Dashboard({ setPage }) {
+  const completed = ASSIGNMENTS.filter(a => a.status === "Completed").length;
+  const pending = ASSIGNMENTS.filter(a => a.status === "Pending").length;
+  const inProgress = ASSIGNMENTS.filter(a => a.status === "In Progress").length;
+
+  const deadlines = [...ASSIGNMENTS]
+    .filter(a => a.status !== "Completed")
+    .sort((a,b) => new Date(a.due) - new Date(b.due))
+    .slice(0, 4);
+
+  const upcomingCAs = [...CAS].sort((a,b) => new Date(a.date) - new Date(b.date)).slice(0,2);
+
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      {/* LEFT / MAIN */}
+      <div className="xl:col-span-2 space-y-6">
+        {/* Overview Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <StatCard icon="clipboard-list" label="Total Assignments" value={ASSIGNMENTS.length} color="#5B8DEF" delay={0} />
+          <StatCard icon="check-circle-2" label="Completed" value={completed} color="#7C9885" sub={`${Math.round(completed/ASSIGNMENTS.length*100)}%`} delay={50} />
+          <StatCard icon="clock-4" label="Pending" value={pending + inProgress} color="#F4A259" delay={100} />
+          <StatCard icon="file-check-2" label="Upcoming CAs" value={CAS.length} color="#FF6B5B" delay={150} />
+          <StatCard icon="trending-up" label="Study Progress" value="68%" color="#9B6BFF" delay={200} />
+          <StatCard icon="flame" label="Day Streak" value="12" color="#F4A259" sub="🔥" delay={250} />
+        </div>
+
+        {/* Upcoming Deadlines */}
+        <div className="glass rounded-2xl p-5 shadow-sm float-in" style={{ animationDelay: '300ms' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-semibold text-[#1E1B4B] flex items-center gap-2"><I name="alarm-clock" size={18} className="text-[#FF6B5B]" /> Upcoming Deadlines</h3>
+            <button onClick={() => setPage("calendar")} className="text-xs font-medium text-[#5B8DEF] hover:underline">View calendar</button>
+          </div>
+          <div className="space-y-2">
+            {deadlines.map(a => {
+              const subj = subjectById(a.subject);
+              const days = daysUntil(a.due);
+              return (
+                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/60 transition-colors group">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${subj.color}1A`, color: subj.color }}>
+                    <I name={subj.icon} size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#1E1B4B] truncate">{a.title}</p>
+                    <p className="text-xs text-[#1E1B4B]/40">{subj.name}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-sm font-semibold ${days <= 1 ? "text-[#FF6B5B]" : "text-[#1E1B4B]/70"}`}>
+                      {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days}d left`}
+                    </p>
+                    <p className="text-xs text-[#1E1B4B]/40">{fmtDate(a.due)}</p>
+                  </div>
+                </div>
+              );
+            })}
+            {upcomingCAs.map(ca => {
+              const subj = subjectById(ca.subject);
+              const days = daysUntil(ca.date);
+              return (
+                <div key={`ca-${ca.id}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/60 transition-colors group border-l-2 border-[#F4A259]">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-[#F4A259]/15 text-[#F4A259]">
+                    <I name="file-check-2" size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#1E1B4B] truncate">{ca.name} — {subj.name}</p>
+                    <p className="text-xs text-[#1E1B4B]/40">{ca.venue} • {ca.time}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-sm font-semibold ${days <= 1 ? "text-[#FF6B5B]" : "text-[#1E1B4B]/70"}`}>{days}d left</p>
+                    <p className="text-xs text-[#1E1B4B]/40">{fmtDate(ca.date)}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Progress Analytics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="glass rounded-2xl p-5 shadow-sm float-in" style={{ animationDelay: '350ms' }}>
+            <h3 className="font-display font-semibold text-[#1E1B4B] mb-4 flex items-center gap-2"><I name="pie-chart" size={18} className="text-[#7C9885]" /> Subject-wise Progress</h3>
+            <div className="space-y-3">
+              {SUBJECTS.map((s, i) => {
+                const total = ASSIGNMENTS.filter(a => a.subject === s.id).length || 1;
+                const done = ASSIGNMENTS.filter(a => a.subject === s.id && a.status === "Completed").length;
+                const pct = Math.round((done / total) * 100) || [70,55,40,85,60][i];
+                return (
+                  <div key={s.id}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1E1B4B]/70">{s.name}</span>
+                      <span className="text-[#1E1B4B]/40">{pct}%</span>
+                    </div>
+                    <div className="h-1.5 bg-[#1E1B4B]/5 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${pct}%`, background: s.color }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="glass rounded-2xl p-5 shadow-sm float-in" style={{ animationDelay: '400ms' }}>
+            <h3 className="font-display font-semibold text-[#1E1B4B] mb-4 flex items-center gap-2"><I name="activity" size={18} className="text-[#5B8DEF]" /> Recent Activity</h3>
+            <div className="space-y-3">
+              {[
+                { icon: "check-circle-2", text: "Completed AC Circuit Analysis Worksheet", time: "2h ago", color: "#7C9885" },
+                { icon: "upload", text: "Uploaded notes to Wave Optics", time: "5h ago", color: "#5B8DEF" },
+                { icon: "message-circle", text: "Replied to a doubt in Mathematics room", time: "8h ago", color: "#FF6B5B" },
+                { icon: "trophy", text: "Earned Best Answer badge", time: "1d ago", color: "#F4A259" },
+              ].map((act, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${act.color}1A`, color: act.color }}>
+                    <I name={act.icon} size={14} />
+                  </div>
+                  <p className="text-sm text-[#1E1B4B]/70 flex-1">{act.text}</p>
+                  <span className="text-xs text-[#1E1B4B]/30 shrink-0">{act.time}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT SIDEBAR */}
+      <div className="space-y-6">
+        {/* HELP EACH OTHER WIDGET */}
+        <div onClick={() => setPage("community")} className="cursor-pointer rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 float-in" style={{ animationDelay: '100ms' }}>
+          <div className="bg-gradient-to-br from-[#FF6B5B] via-[#FF8B6B] to-[#F4A259] p-5 text-white relative overflow-hidden">
+            <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10"></div>
+            <div className="absolute -right-2 bottom-2 w-16 h-16 rounded-full bg-white/10"></div>
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">🤝</span>
+                <h3 className="font-display font-semibold text-lg">Help Each Other</h3>
+              </div>
+              <p className="text-sm text-white/85 mb-4">Pyaar baatne se badhta hai ❤️</p>
+
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex -space-x-2">
+                  {ONLINE_STUDENTS.filter(s=>s.status==="online").slice(0,4).map(s => (
+                    <div key={s.id} className="w-7 h-7 rounded-full border-2 border-white/40 flex items-center justify-center text-[10px] font-semibold" style={{ background: s.color }}>{s.avatar}</div>
+                  ))}
+                </div>
+                <span className="text-xs text-white/90 font-medium">{ONLINE_STUDENTS.filter(s=>s.status==="online").length} students online</span>
+                <span className="w-2 h-2 rounded-full bg-white pulse"></span>
+              </div>
+
+              <div className="bg-white/15 rounded-xl p-3 mb-2">
+                <p className="text-xs text-white/70 mb-1">Recent discussion</p>
+                <p className="text-sm font-medium truncate">"{COMMUNITY_MESSAGES[COMMUNITY_MESSAGES.length-1].text}"</p>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-white/85">
+                  <span className="font-semibold">{DOUBTS.filter(d=>d.status==="Unsolved").length}</span> unanswered doubts
+                </p>
+                <span className="text-xs font-semibold bg-white text-[#FF6B5B] px-3 py-1.5 rounded-full flex items-center gap-1">
+                  Open Community <I name="arrow-right" size={12} />
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Notifications preview */}
+        <div className="glass rounded-2xl p-5 shadow-sm float-in" style={{ animationDelay: '200ms' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-display font-semibold text-[#1E1B4B] flex items-center gap-2"><I name="bell" size={16} className="text-[#9B6BFF]" /> Notifications</h3>
+            <button onClick={() => setPage("notifications")} className="text-xs font-medium text-[#5B8DEF] hover:underline">See all</button>
+          </div>
+          <div className="space-y-2">
+            {NOTIFICATIONS.filter(n=>!n.read).slice(0,3).map(n => (
+              <div key={n.id} className="flex items-start gap-2 p-2 rounded-lg hover:bg-white/60 transition-colors">
+                <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${n.priority==='high'?'bg-[#FF6B5B]':n.priority==='medium'?'bg-[#F4A259]':'bg-[#7C9885]'}`}></span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-[#1E1B4B]/80 leading-snug">{n.text}</p>
+                  <p className="text-[10px] text-[#1E1B4B]/30 mt-0.5">{n.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick subjects */}
+        <div className="glass rounded-2xl p-5 shadow-sm float-in" style={{ animationDelay: '300ms' }}>
+          <h3 className="font-display font-semibold text-[#1E1B4B] mb-3 flex items-center gap-2"><I name="layers" size={16} className="text-[#5B8DEF]" /> Subjects</h3>
+          <div className="space-y-1.5">
+            {SUBJECTS.map(s => (
+              <div key={s.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-white/60 transition-colors cursor-pointer">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${s.color}1A`, color: s.color }}>
+                  <I name={s.icon} size={13} />
+                </div>
+                <span className="text-sm text-[#1E1B4B]/70 truncate">{s.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- ASSIGNMENTS ----------
+function Assignments() {
+  const [filter, setFilter] = useState("all");
+  const [selected, setSelected] = useState(null);
+  const [items, setItems] = useState(ASSIGNMENTS);
+
+  const filtered = items.filter(a => filter === "all" || a.status === filter);
+
+  const toggleComplete = (id) => {
+    setItems(items.map(a => a.id === id ? { ...a, status: a.status === "Completed" ? "Pending" : "Completed" } : a));
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        {["all","Pending","In Progress","Completed"].map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filter===f ? "bg-[#1E1B4B] text-white" : "bg-white text-[#1E1B4B]/60 hover:bg-[#1E1B4B]/5"}`}>
+            {f === "all" ? "All" : f}
+          </button>
+        ))}
+        <button className="ml-auto px-4 py-2 rounded-xl text-sm font-medium bg-[#FF6B5B] text-white hover:bg-[#ff5a48] transition-colors flex items-center gap-1.5 shadow-sm">
+          <I name="plus" size={15} /> Add Assignment
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {filtered.map((a, i) => {
+          const subj = subjectById(a.subject);
+          return (
+            <div key={a.id} onClick={() => setSelected(a)} className="glass rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer float-in" style={{animationDelay: `${i*40}ms`}}>
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium px-2 py-1 rounded-lg" style={{ background: `${subj.color}1A`, color: subj.color }}>{subj.name}</span>
+                  <PriorityDot priority={a.priority} />
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); toggleComplete(a.id); }} className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${a.status==='Completed' ? "bg-[#7C9885] border-[#7C9885]" : "border-[#1E1B4B]/15 hover:border-[#7C9885]"}`}>
+                  {a.status === "Completed" && <I name="check" size={12} className="text-white" />}
+                </button>
+              </div>
+              <h3 className={`font-display font-medium text-[#1E1B4B] mb-1 ${a.status==='Completed' ? "line-through opacity-50" : ""}`}>{a.title}</h3>
+              <p className="text-sm text-[#1E1B4B]/50 mb-3 line-clamp-2">{a.desc}</p>
+              <div className="flex items-center justify-between">
+                <StatusBadge status={a.status} />
+                <span className="text-xs text-[#1E1B4B]/40 flex items-center gap-1"><I name="calendar" size={12} /> {fmtDate(a.due)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {selected && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl float-in" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <span className="text-xs font-medium px-2 py-1 rounded-lg" style={{ background: `${subjectById(selected.subject).color}1A`, color: subjectById(selected.subject).color }}>{subjectById(selected.subject).name}</span>
+                <h2 className="font-display text-xl font-semibold text-[#1E1B4B] mt-2">{selected.title}</h2>
+              </div>
+              <button onClick={() => setSelected(null)} className="text-[#1E1B4B]/30 hover:text-[#1E1B4B]"><I name="x" size={20} /></button>
+            </div>
+            <p className="text-sm text-[#1E1B4B]/60 mb-4">{selected.desc}</p>
+            <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+              <div><p className="text-xs text-[#1E1B4B]/40 mb-1">Due Date</p><p className="font-medium text-[#1E1B4B]">{fmtDate(selected.due)}</p></div>
+              <div><p className="text-xs text-[#1E1B4B]/40 mb-1">Priority</p><p className="font-medium text-[#1E1B4B] flex items-center gap-1.5"><PriorityDot priority={selected.priority}/> {selected.priority}</p></div>
+            </div>
+            <div className="border-t border-[var(--line)] pt-4 mb-4">
+              <p className="text-xs font-medium text-[#1E1B4B]/40 mb-2 uppercase tracking-wide">Checklist</p>
+              {["Read assignment brief","Gather reference material","Draft solution","Review & submit"].map((c,i)=>(
+                <label key={i} className="flex items-center gap-2 text-sm text-[#1E1B4B]/70 mb-1.5 cursor-pointer">
+                  <input type="checkbox" className="rounded accent-[#7C9885]" defaultChecked={i<1} /> {c}
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button className="flex-1 py-2.5 rounded-xl bg-[#1E1B4B] text-white text-sm font-medium hover:bg-[#2a266a] transition-colors">Edit</button>
+              <button className="flex-1 py-2.5 rounded-xl bg-[#FF6B5B]/10 text-[#FF6B5B] text-sm font-medium hover:bg-[#FF6B5B]/20 transition-colors">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- CAs ----------
+function CAModule() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {CAS.map((ca, i) => {
+        const subj = subjectById(ca.subject);
+        const days = daysUntil(ca.date);
+        return (
+          <div key={ca.id} className="glass rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow float-in" style={{animationDelay:`${i*60}ms`}}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${subj.color}1A`, color: subj.color }}>
+                  <I name={subj.icon} size={18} />
+                </div>
+                <div>
+                  <p className="font-display font-semibold text-[#1E1B4B]">{ca.name}</p>
+                  <p className="text-xs text-[#1E1B4B]/40">{subj.name}</p>
+                </div>
+              </div>
+              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${days<=2 ? "bg-[#FF6B5B]/15 text-[#FF6B5B]" : "bg-[#F4A259]/15 text-[#F4A259]"}`}>
+                {days}d left
+              </span>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-[#1E1B4B]/60 mb-3">
+              <span className="flex items-center gap-1.5"><I name="calendar" size={14}/> {fmtDate(ca.date)}</span>
+              <span className="flex items-center gap-1.5"><I name="clock" size={14}/> {ca.time}</span>
+              <span className="flex items-center gap-1.5"><I name="map-pin" size={14}/> {ca.venue}</span>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-[#1E1B4B]/40 mb-2 uppercase tracking-wide">Topics Covered</p>
+              <div className="flex flex-wrap gap-1.5">
+                {ca.topics.map(t => (
+                  <span key={t} className="text-xs px-2.5 py-1 rounded-lg bg-[#1E1B4B]/5 text-[#1E1B4B]/70">{t}</span>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-[var(--line)] flex items-center gap-2 text-xs text-[#1E1B4B]/40">
+              <I name="bell-ring" size={13} /> Reminders set: 7d, 3d, 1d before
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------- PYQs ----------
+function PYQModule() {
+  const [activeSubject, setActiveSubject] = useState(SUBJECTS[0].id);
+  const [activeYear, setActiveYear] = useState("2025");
+  const subj = subjectById(activeSubject);
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-5 overflow-x-auto scrollbar-none pb-1">
+        {SUBJECTS.map(s => (
+          <button key={s.id} onClick={() => setActiveSubject(s.id)}
+            className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${activeSubject===s.id ? "text-white" : "bg-white text-[#1E1B4B]/60 hover:bg-[#1E1B4B]/5"}`}
+            style={activeSubject===s.id ? {background: s.color} : {}}>
+            <I name={s.icon} size={14} /> {s.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-2 mb-5">
+        {["2023","2024","2025"].map(y => (
+          <button key={y} onClick={() => setActiveYear(y)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${activeYear===y ? "bg-[#1E1B4B] text-white" : "bg-white text-[#1E1B4B]/50 hover:bg-[#1E1B4B]/5"}`}>
+            {y}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {["Mid-Term","End-Semester"].map((type,i) => (
+          <div key={type} className="glass rounded-2xl p-5 shadow-sm float-in" style={{animationDelay:`${i*70}ms`}}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{background:`${subj.color}1A`, color:subj.color}}>
+                  <I name="file-text" size={16}/>
+                </div>
+                <div>
+                  <p className="font-medium text-[#1E1B4B] text-sm">{type}</p>
+                  <p className="text-xs text-[#1E1B4B]/40">{subj.name} • {activeYear}</p>
+                </div>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-[#7C9885]/15 text-[#7C9885] font-medium">PDF</span>
+            </div>
+            <div className="flex gap-2">
+              <button className="flex-1 py-2 rounded-xl bg-[#1E1B4B]/5 text-[#1E1B4B] text-xs font-medium hover:bg-[#1E1B4B]/10 transition-colors flex items-center justify-center gap-1.5">
+                <I name="eye" size={13}/> Preview
+              </button>
+              <button className="flex-1 py-2 rounded-xl text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5" style={{background:subj.color}}>
+                <I name="download" size={13}/> Download
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 glass rounded-2xl p-5 shadow-sm border-2 border-dashed border-[var(--line)] flex items-center justify-center text-center">
+        <div>
+          <I name="upload-cloud" size={28} className="text-[#1E1B4B]/20 mx-auto mb-2"/>
+          <p className="text-sm text-[#1E1B4B]/50">Drag & drop a PDF or <span className="text-[#5B8DEF] font-medium cursor-pointer">browse</span> to upload a question paper</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- STUDY MATERIAL ----------
+function StudyMaterial() {
+  const [activeSubject, setActiveSubject] = useState(SUBJECTS[0].id);
+  const subj = subjectById(activeSubject);
+
+  const books = [
+    { title: "Higher Engineering Mathematics", author: "B.S. Grewal", color: "#5B8DEF" },
+    { title: "Unit Notes — Compiled", author: "Faculty Notes", color: "#F4A259" },
+    { title: "Problem Solving Workbook", author: "Lab Manual", color: "#7C9885" },
+  ];
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-6 overflow-x-auto scrollbar-none pb-1">
+        {SUBJECTS.map(s => (
+          <button key={s.id} onClick={() => setActiveSubject(s.id)}
+            className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${activeSubject===s.id ? "text-white" : "bg-white text-[#1E1B4B]/60 hover:bg-[#1E1B4B]/5"}`}
+            style={activeSubject===s.id ? {background: s.color} : {}}>
+            <I name={s.icon} size={14} /> {s.name}
+          </button>
+        ))}
+      </div>
+
+      <h3 className="font-display font-semibold text-[#1E1B4B] mb-3 flex items-center gap-2"><I name="book-open" size={18} className="text-[#5B8DEF]"/> Books & Notes</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+        {books.map((b,i) => (
+          <div key={i} className="glass rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow float-in" style={{animationDelay:`${i*60}ms`}}>
+            <div className="h-24 flex items-center justify-center" style={{background:`${b.color}1A`}}>
+              <I name="book" size={32} className="" />
+            </div>
+            <div className="p-3">
+              <p className="text-sm font-medium text-[#1E1B4B] truncate">{b.title}</p>
+              <p className="text-xs text-[#1E1B4B]/40">{b.author}</p>
+            </div>
+          </div>
+        ))}
+        <div className="glass rounded-2xl border-2 border-dashed border-[var(--line)] flex items-center justify-center min-h-[140px] cursor-pointer hover:bg-white/40 transition-colors">
+          <div className="text-center"><I name="plus-circle" size={24} className="text-[#1E1B4B]/30 mx-auto mb-1"/><p className="text-xs text-[#1E1B4B]/40">Add material</p></div>
+        </div>
+      </div>
+
+      <h3 className="font-display font-semibold text-[#1E1B4B] mb-3 flex items-center gap-2"><I name="play-circle" size={18} className="text-[#FF6B5B]"/> Video Resources</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        {[1,2].map(i => (
+          <div key={i} className="glass rounded-2xl overflow-hidden shadow-sm float-in" style={{animationDelay:`${i*70}ms`}}>
+            <div className="aspect-video bg-[#1E1B4B] flex items-center justify-center relative">
+              <I name="play" size={32} className="text-white/80" />
+              <span className="absolute bottom-2 right-2 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">YouTube Playlist</span>
+            </div>
+            <div className="p-3">
+              <p className="text-sm font-medium text-[#1E1B4B]">{subj.name} — Full Course Playlist</p>
+              <p className="text-xs text-[#1E1B4B]/40 mt-0.5">12 videos • Embedded</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <h3 className="font-display font-semibold text-[#1E1B4B] mb-3 flex items-center gap-2"><I name="link" size={18} className="text-[#7C9885]"/> Additional Resources</h3>
+      <div className="space-y-2">
+        {[
+          { icon: "globe", label: "GeeksforGeeks — " + subj.name, type: "Website" },
+          { icon: "file-text", label: "Lecture Notes — Unit 1-5 Compiled", type: "PDF" },
+          { icon: "hard-drive", label: "Shared Drive Folder — Reference Material", type: "Drive Link" },
+        ].map((r,i) => (
+          <div key={i} className="glass rounded-xl p-3 flex items-center gap-3 hover:bg-white/60 transition-colors cursor-pointer">
+            <div className="w-8 h-8 rounded-lg bg-[#1E1B4B]/5 flex items-center justify-center"><I name={r.icon} size={15}/></div>
+            <p className="text-sm text-[#1E1B4B]/70 flex-1">{r.label}</p>
+            <span className="text-xs text-[#1E1B4B]/30">{r.type}</span>
+            <I name="external-link" size={14} className="text-[#1E1B4B]/30"/>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------- CALENDAR ----------
+function CalendarModule() {
+  const [view, setView] = useState("month");
+  const [selectedEvent, setSelectedEvent] = useState(null);
+
+  const events = [
+    ...ASSIGNMENTS.map(a => ({ date: a.due, title: a.title, type: "assignment", color: "#FF6B5B", subject: subjectById(a.subject).name })),
+    ...CAS.map(c => ({ date: c.date, title: `${c.name} — ${subjectById(c.subject).name}`, type: "ca", color: "#F4A259", subject: subjectById(c.subject).name, time: c.time, venue: c.venue })),
+    { date: "2026-06-15", title: "Mid-Term Exam — Engineering Physics", type: "exam", color: "#5B8DEF", subject: "Engineering Physics" },
+    { date: "2026-06-13", title: "Group Study — Differential Equations", type: "study", color: "#7C9885", subject: "Engineering Mathematics" },
+    { date: "2026-06-17", title: "Group Study — Pointers Practice", type: "study", color: "#7C9885", subject: "Programming in C" },
+  ];
+
+  // June 2026 calendar grid (June 1, 2026 is a Monday)
+  const daysInMonth = 30;
+  const startOffset = 1; // June 1 2026 = Monday (index 1 if Sun=0)
+  const cells = [];
+  for (let i=0;i<startOffset;i++) cells.push(null);
+  for (let d=1; d<=daysInMonth; d++) cells.push(d);
+
+  const eventsForDay = (d) => events.filter(e => new Date(e.date).getDate() === d && new Date(e.date).getMonth() === 5);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          {["Day","Week","Month","Year"].map(v => (
+            <button key={v} onClick={() => setView(v.toLowerCase())}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${view===v.toLowerCase() ? "bg-[#1E1B4B] text-white" : "bg-white text-[#1E1B4B]/60 hover:bg-[#1E1B4B]/5"}`}>
+              {v}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="w-9 h-9 rounded-lg bg-white flex items-center justify-center text-[#1E1B4B]/50 hover:bg-[#1E1B4B]/5"><I name="chevron-left" size={16}/></button>
+          <span className="font-display font-semibold text-[#1E1B4B]">June 2026</span>
+          <button className="w-9 h-9 rounded-lg bg-white flex items-center justify-center text-[#1E1B4B]/50 hover:bg-[#1E1B4B]/5"><I name="chevron-right" size={16}/></button>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 mb-4 text-xs text-[#1E1B4B]/60">
+        {[["Assignment Deadlines","#FF6B5B"],["CAs","#F4A259"],["Exams","#5B8DEF"],["Study Tasks","#7C9885"]].map(([l,c])=>(
+          <span key={l} className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{background:c}}></span>{l}</span>
+        ))}
+      </div>
+
+      {view === "month" && (
+        <div className="glass rounded-2xl p-4 shadow-sm">
+          <div className="grid grid-cols-7 gap-2 mb-2">
+            {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
+              <div key={d} className="text-center text-xs font-semibold text-[#1E1B4B]/40 py-2">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {cells.map((d, i) => {
+              const dayEvents = d ? eventsForDay(d) : [];
+              const isToday = d === 11;
+              return (
+                <div key={i} className={`min-h-[90px] rounded-xl p-1.5 ${d ? "bg-white/50 hover:bg-white/80" : ""} transition-colors ${isToday ? "ring-2 ring-[#FF6B5B]" : ""}`}>
+                  {d && <p className={`text-xs font-medium mb-1 ${isToday ? "text-[#FF6B5B]" : "text-[#1E1B4B]/50"}`}>{d}</p>}
+                  <div className="space-y-1">
+                    {dayEvents.slice(0,2).map((e,idx) => (
+                      <div key={idx} onClick={() => setSelectedEvent(e)} className="text-[10px] px-1.5 py-0.5 rounded truncate cursor-pointer text-white font-medium" style={{background:e.color}}>
+                        {e.title}
+                      </div>
+                    ))}
+                    {dayEvents.length > 2 && <p className="text-[10px] text-[#1E1B4B]/30 px-1.5">+{dayEvents.length-2} more</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {view !== "month" && (
+        <div className="glass rounded-2xl p-8 shadow-sm text-center">
+          <I name="calendar-range" size={36} className="text-[#1E1B4B]/20 mx-auto mb-3"/>
+          <p className="text-sm text-[#1E1B4B]/50">{view.charAt(0).toUpperCase()+view.slice(1)} view — showing same events in a {view} layout.</p>
+          <div className="mt-4 space-y-2 max-w-md mx-auto text-left">
+            {events.slice(0,5).map((e,i) => (
+              <div key={i} onClick={() => setSelectedEvent(e)} className="flex items-center gap-3 p-2.5 bg-white/60 rounded-xl cursor-pointer hover:bg-white">
+                <span className="w-2 h-2 rounded-full" style={{background:e.color}}></span>
+                <span className="text-sm text-[#1E1B4B]/70 flex-1 truncate">{e.title}</span>
+                <span className="text-xs text-[#1E1B4B]/40">{fmtDate(e.date)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {selectedEvent && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedEvent(null)}>
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl" onClick={e=>e.stopPropagation()}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{background:`${selectedEvent.color}1A`, color:selectedEvent.color}}>
+              <I name={selectedEvent.type==='assignment'?'clipboard-list':selectedEvent.type==='ca'?'file-check-2':selectedEvent.type==='exam'?'graduation-cap':'users'} size={18}/>
+            </div>
+            <h3 className="font-display font-semibold text-[#1E1B4B] mb-1">{selectedEvent.title}</h3>
+            <p className="text-sm text-[#1E1B4B]/50 mb-3">{selectedEvent.subject}</p>
+            <div className="text-sm text-[#1E1B4B]/60 space-y-1">
+              <p className="flex items-center gap-2"><I name="calendar" size={14}/> {fmtDate(selectedEvent.date)}, 2026</p>
+              {selectedEvent.time && <p className="flex items-center gap-2"><I name="clock" size={14}/> {selectedEvent.time}</p>}
+              {selectedEvent.venue && <p className="flex items-center gap-2"><I name="map-pin" size={14}/> {selectedEvent.venue}</p>}
+            </div>
+            <button onClick={() => setSelectedEvent(null)} className="mt-4 w-full py-2.5 rounded-xl bg-[#1E1B4B] text-white text-sm font-medium">Close</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- NOTIFICATIONS ----------
+function NotificationsModule() {
+  const [items, setItems] = useState(NOTIFICATIONS);
+  const iconMap = { deadline: "alarm-clock", ca: "file-check-2", community: "heart-handshake", material: "book-open" };
+  const colorMap = { deadline: "#FF6B5B", ca: "#F4A259", community: "#5B8DEF", material: "#7C9885" };
+
+  return (
+    <div className="max-w-2xl">
+      <div className="flex justify-end mb-4">
+        <button onClick={() => setItems(items.map(n=>({...n,read:true})))} className="text-sm text-[#5B8DEF] font-medium hover:underline">Mark all as read</button>
+      </div>
+      <div className="space-y-2">
+        {items.map((n,i) => (
+          <div key={n.id} onClick={() => setItems(items.map(it=>it.id===n.id?{...it,read:true}:it))}
+            className={`glass rounded-xl p-4 flex items-start gap-3 cursor-pointer hover:bg-white/80 transition-colors float-in ${!n.read ? "ring-1 ring-[#5B8DEF]/30" : "opacity-60"}`} style={{animationDelay:`${i*40}ms`}}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{background:`${colorMap[n.type]}1A`, color:colorMap[n.type]}}>
+              <I name={iconMap[n.type]} size={16}/>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-[#1E1B4B]">{n.text}</p>
+              <p className="text-xs text-[#1E1B4B]/40 mt-0.5">{n.time}</p>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className={`w-2 h-2 rounded-full ${n.priority==='high'?'bg-[#FF6B5B]':n.priority==='medium'?'bg-[#F4A259]':'bg-[#7C9885]'}`}></span>
+              {!n.read && <span className="w-2 h-2 rounded-full bg-[#5B8DEF]"></span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------- SETTINGS ----------
+function SettingsModule({ user, setUser, theme, setTheme }) {
+  return (
+    <div className="max-w-xl space-y-6">
+      <div className="glass rounded-2xl p-6 shadow-sm">
+        <h3 className="font-display font-semibold text-[#1E1B4B] mb-4 flex items-center gap-2"><I name="user" size={18} className="text-[#5B8DEF]"/> Profile Information</h3>
+        <div className="flex items-center gap-4 mb-5">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#5B8DEF] to-[#9B6BFF] flex items-center justify-center font-display font-semibold text-white text-xl">{user.avatar}</div>
+          <div>
+            <p className="font-medium text-[#1E1B4B]">{user.name}</p>
+            <p className="text-sm text-[#1E1B4B]/40">{user.email}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-medium text-[#1E1B4B]/40 mb-1.5 block">Full Name</label>
+            <input defaultValue={user.name} className="w-full px-3 py-2 rounded-xl border border-[var(--line)] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/30" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[#1E1B4B]/40 mb-1.5 block">Branch / Department</label>
+            <input defaultValue={user.branch} className="w-full px-3 py-2 rounded-xl border border-[var(--line)] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/30" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[#1E1B4B]/40 mb-1.5 block">Academic Year</label>
+            <select className="w-full px-3 py-2 rounded-xl border border-[var(--line)] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/30">
+              <option>2nd Year</option><option>1st Year</option><option>3rd Year</option><option>4th Year</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[#1E1B4B]/40 mb-1.5 block">Semester</label>
+            <select className="w-full px-3 py-2 rounded-xl border border-[var(--line)] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/30" defaultValue={user.semester}>
+              {[1,2,3,4,5,6,7,8].map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+        <button className="mt-5 px-5 py-2.5 rounded-xl bg-[#1E1B4B] text-white text-sm font-medium hover:bg-[#2a266a] transition-colors">Save Changes</button>
+      </div>
+
+      <div className="glass rounded-2xl p-6 shadow-sm">
+        <h3 className="font-display font-semibold text-[#1E1B4B] mb-4 flex items-center gap-2"><I name="palette" size={18} className="text-[#F4A259]"/> Theme</h3>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { id: "light", label: "Light", bg: "#FAF8F4", accent: "#FF6B5B" },
+            { id: "dark", label: "Dark", bg: "#1E1B4B", accent: "#9B6BFF" },
+            { id: "blue", label: "Academic Blue", bg: "#E8F0FE", accent: "#5B8DEF" },
+          ].map(t => (
+            <button key={t.id} onClick={() => setTheme(t.id)} className={`rounded-xl p-3 border-2 transition-all ${theme===t.id ? "border-[#FF6B5B]" : "border-transparent"}`}>
+              <div className="h-12 rounded-lg mb-2 flex items-center justify-center" style={{background:t.bg}}>
+                <div className="w-6 h-6 rounded-full" style={{background:t.accent}}></div>
+              </div>
+              <p className="text-xs font-medium text-[#1E1B4B]">{t.label}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- HELP EACH OTHER (COMMUNITY) ----------
+function LevelBadge({ level }) {
+  return <span className="text-[10px] font-medium text-[#1E1B4B]/50 whitespace-nowrap">{level}</span>;
+}
+
+function CommunityChat({ room, setRoom }) {
+  const [messages, setMessages] = useState(COMMUNITY_MESSAGES);
+  const [input, setInput] = useState("");
+  const [typing, setTyping] = useState(true);
+  const scrollRef = useRef(null);
+
+  const rooms = [
+    { id: "general", label: "Global Community", icon: "globe-2" },
+    ...SUBJECTS.map(s => ({ id: s.id, label: s.name, icon: s.icon, color: s.color })),
+  ];
+
+  const roomMessages = messages.filter(m => m.room === room || (room !== "general" && m.room === "general" && false));
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, room]);
+
+  const send = () => {
+    if (!input.trim()) return;
+    setMessages([...messages, { id: Date.now(), user: { name: "You", avatar: "ME", color: "#1E1B4B" }, text: input, time: "now", room }]);
+    setInput("");
+  };
+
+  const currentRoom = rooms.find(r => r.id === room);
+
+  return (
+    <div className="flex h-[calc(100vh-220px)] min-h-[480px] glass rounded-2xl overflow-hidden shadow-sm">
+      {/* Room list */}
+      <div className="w-56 shrink-0 border-r border-[var(--line)] bg-white/40 flex flex-col">
+        <div className="p-3 border-b border-[var(--line)]">
+          <p className="text-xs font-semibold text-[#1E1B4B]/40 uppercase tracking-wide px-2">Discussion Rooms</p>
+        </div>
+        <div className="flex-1 overflow-y-auto scrollbar-none p-2 space-y-1">
+          {rooms.map(r => (
+            <button key={r.id} onClick={() => setRoom(r.id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors ${room===r.id ? "bg-[#1E1B4B] text-white" : "text-[#1E1B4B]/60 hover:bg-white/80"}`}>
+              <I name={r.icon} size={15} />
+              <span className="truncate flex-1 text-left">{r.label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="p-3 border-t border-[var(--line)]">
+          <p className="text-xs font-semibold text-[#1E1B4B]/40 uppercase tracking-wide px-2 mb-2">Online Now</p>
+          <div className="space-y-1.5 px-1">
+            {ONLINE_STUDENTS.map(s => (
+              <div key={s.id} className="flex items-center gap-2">
+                <div className="relative">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-semibold text-white" style={{background:s.color}}>{s.avatar}</div>
+                  <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white ${s.status==='online'?'bg-[#7C9885]':'bg-[#1E1B4B]/20'}`}></span>
+                </div>
+                <span className="text-xs text-[#1E1B4B]/60 truncate">{s.name.split(' ')[0]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Chat */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="p-4 border-b border-[var(--line)] flex items-center justify-between bg-white/40">
+          <div className="flex items-center gap-2">
+            <I name={currentRoom.icon} size={18} style={currentRoom.color ? {color: currentRoom.color} : {}}/>
+            <div>
+              <p className="font-medium text-[#1E1B4B] text-sm">{currentRoom.label}</p>
+              <p className="text-xs text-[#1E1B4B]/40">{ONLINE_STUDENTS.filter(s=>s.status==='online').length} online</p>
+            </div>
+          </div>
+          <I name="search" size={16} className="text-[#1E1B4B]/30"/>
+        </div>
+
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+          {roomMessages.length === 0 && (
+            <div className="text-center text-sm text-[#1E1B4B]/30 mt-10">No messages yet in this room. Say hi! 👋</div>
+          )}
+          {roomMessages.map((m,i) => (
+            <div key={m.id} className={`flex gap-3 float-in ${m.user.name==='You' ? "flex-row-reverse" : ""}`} style={{animationDelay:`${i*30}ms`}}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style={{background:m.user.color}}>{m.user.avatar}</div>
+              <div className={`max-w-[75%] ${m.user.name==='You' ? "items-end" : ""} flex flex-col`}>
+                <div className={`flex items-center gap-2 mb-1 ${m.user.name==='You' ? "flex-row-reverse" : ""}`}>
+                  <span className="text-xs font-medium text-[#1E1B4B]">{m.user.name}</span>
+                  <span className="text-[10px] text-[#1E1B4B]/30">{m.time}</span>
+                </div>
+                <div className={`rounded-2xl px-3.5 py-2.5 text-sm ${m.user.name==='You' ? "bg-[#FF6B5B] text-white rounded-tr-sm" : "bg-white text-[#1E1B4B]/80 rounded-tl-sm"} shadow-sm`}>
+                  {m.text.split(' ').map((w,wi) => w.startsWith('@') ? <span key={wi} className={`font-medium ${m.user.name==='You'?'text-white':'text-[#5B8DEF]'}`}>{w} </span> : w + ' ')}
+                </div>
+                {m.attachment && (
+                  <div className="mt-1.5 bg-white rounded-xl p-2.5 flex items-center gap-2.5 shadow-sm border border-[var(--line)]">
+                    <div className="w-9 h-9 rounded-lg bg-[#FF6B5B]/10 flex items-center justify-center text-[#FF6B5B]"><I name="file-text" size={16}/></div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-[#1E1B4B] truncate">{m.attachment.name}</p>
+                      <p className="text-[10px] text-[#1E1B4B]/40">{m.attachment.size}</p>
+                    </div>
+                  </div>
+                )}
+                {m.link && (
+                  <div className="mt-1.5 bg-white rounded-xl overflow-hidden shadow-sm border border-[var(--line)] max-w-xs">
+                    <div className="h-20 bg-[#1E1B4B] flex items-center justify-center"><I name="play-circle" size={24} className="text-white/70"/></div>
+                    <div className="p-2"><p className="text-xs font-medium text-[#1E1B4B] truncate">{m.link.title}</p><p className="text-[10px] text-[#1E1B4B]/40">{m.link.url}</p></div>
+                  </div>
+                )}
+                <div className={`flex gap-1 mt-1 ${m.user.name==='You' ? "flex-row-reverse" : ""}`}>
+                  {["👍","❤️","😄"].map(e => <span key={e} className="text-xs bg-white/80 rounded-full px-1.5 py-0.5 cursor-pointer hover:scale-110 transition-transform shadow-sm">{e}</span>)}
+                </div>
+              </div>
+            </div>
+          ))}
+          {typing && (
+            <div className="flex items-center gap-2 text-xs text-[#1E1B4B]/40 pl-11">
+              <div className="flex gap-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1E1B4B]/30 animate-bounce" style={{animationDelay:'0ms'}}></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1E1B4B]/30 animate-bounce" style={{animationDelay:'150ms'}}></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1E1B4B]/30 animate-bounce" style={{animationDelay:'300ms'}}></span>
+              </div>
+              Rohan Das is typing...
+            </div>
+          )}
+        </div>
+
+        <div className="p-3 border-t border-[var(--line)] bg-white/40">
+          <div className="flex items-center gap-2">
+            <button className="w-9 h-9 rounded-xl flex items-center justify-center text-[#1E1B4B]/40 hover:bg-white transition-colors shrink-0"><I name="paperclip" size={17}/></button>
+            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()}
+              placeholder={`Message ${currentRoom.label}... use @ to mention`}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-[var(--line)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/30" />
+            <button className="w-9 h-9 rounded-xl flex items-center justify-center text-[#1E1B4B]/40 hover:bg-white transition-colors shrink-0"><I name="smile" size={17}/></button>
+            <button onClick={send} className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#FF6B5B] text-white hover:bg-[#ff5a48] transition-colors shrink-0"><I name="send" size={15}/></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DoubtCard({ d, onOpen }) {
+  const subj = subjectById(d.subject);
+  return (
+    <div onClick={() => onOpen(d)} className="glass rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-lg" style={{background:`${subj.color}1A`, color:subj.color}}>{subj.name}</span>
+          <StatusBadge status={d.status} />
+        </div>
+        <span className="text-xs text-[#1E1B4B]/30 shrink-0">{d.time}</span>
+      </div>
+      <h4 className="font-medium text-[#1E1B4B] text-sm mb-1">{d.title}</h4>
+      <p className="text-xs text-[#1E1B4B]/50 line-clamp-2 mb-3">{d.desc}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-semibold text-white" style={{background:d.author.color}}>{d.author.avatar}</div>
+          <span className="text-xs text-[#1E1B4B]/50">{d.author.name}</span>
+        </div>
+        <span className="text-xs text-[#1E1B4B]/40 flex items-center gap-1"><I name="message-circle" size={13}/> {d.replies}</span>
+      </div>
+      {d.bestAnswer && (
+        <div className="mt-2 pt-2 border-t border-[var(--line)] flex items-center gap-1.5 text-xs text-[#7C9885]">
+          <I name="trophy" size={13}/> Best answer by {d.bestAnswer.name}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HelpEachOther() {
+  const [tab, setTab] = useState("chat");
+  const [room, setRoom] = useState("general");
+  const [doubtFilter, setDoubtFilter] = useState("all");
+  const [openDoubt, setOpenDoubt] = useState(null);
+  const [showNewDoubt, setShowNewDoubt] = useState(false);
+
+  const filteredDoubts = DOUBTS.filter(d => doubtFilter==='all' || d.status===doubtFilter);
+
+  const TABS = [
+    { id: "chat", label: "Community Chat", icon: "message-square" },
+    { id: "doubts", label: "Doubt Solving", icon: "help-circle" },
+    { id: "resources", label: "Shared Resources", icon: "folder-heart" },
+    { id: "leaderboard", label: "Reputation", icon: "trophy" },
+  ];
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="text-center mb-6 float-in">
+        <h1 className="font-display text-3xl md:text-4xl font-semibold text-[#1E1B4B] mb-2">Help Each Other</h1>
+        <p className="shimmer font-display text-lg font-medium">Pyaar baatne se badhta hai ❤️</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 mb-6 overflow-x-auto scrollbar-none justify-center flex-wrap">
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${tab===t.id ? "bg-[#1E1B4B] text-white shadow-sm" : "bg-white text-[#1E1B4B]/60 hover:bg-[#1E1B4B]/5"}`}>
+            <I name={t.icon} size={15}/> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "chat" && <CommunityChat room={room} setRoom={setRoom} />}
+
+      {tab === "doubts" && (
+        <div>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {["all","Unsolved","In Progress","Solved"].map(f => (
+                <button key={f} onClick={() => setDoubtFilter(f)}
+                  className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all ${doubtFilter===f ? "bg-[#1E1B4B] text-white" : "bg-white text-[#1E1B4B]/60 hover:bg-[#1E1B4B]/5"}`}>
+                  {f === "all" ? "All Doubts" : f}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowNewDoubt(true)} className="px-4 py-2 rounded-xl bg-[#FF6B5B] text-white text-sm font-medium hover:bg-[#ff5a48] transition-colors flex items-center gap-1.5 shadow-sm">
+              <I name="plus" size={15}/> Ask a Doubt
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredDoubts.map(d => <DoubtCard key={d.id} d={d} onOpen={setOpenDoubt} />)}
+          </div>
+        </div>
+      )}
+
+      {tab === "resources" && (
+        <div>
+          <div className="flex justify-end mb-4">
+            <button className="px-4 py-2 rounded-xl bg-[#FF6B5B] text-white text-sm font-medium hover:bg-[#ff5a48] transition-colors flex items-center gap-1.5 shadow-sm">
+              <I name="upload" size={15}/> Share a Resource
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {RESOURCES.map((r,i) => {
+              const subj = subjectById(r.subject);
+              return (
+                <div key={r.id} className="glass rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow flex items-center gap-3 float-in" style={{animationDelay:`${i*50}ms`}}>
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{background:`${subj.color}1A`, color:subj.color}}>
+                    <I name={r.type==='PYQ'?'archive':r.type==='Cheat Sheet'?'sticky-note':r.type==='Formula Sheet'?'sigma':'file-text'} size={18}/>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#1E1B4B] truncate">{r.title}</p>
+                    <p className="text-xs text-[#1E1B4B]/40">{subj.name} • by {r.uploader.name} • {r.type}</p>
+                  </div>
+                  <button className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg bg-[#7C9885]/10 text-[#7C9885] shrink-0 hover:bg-[#7C9885]/20 transition-colors">
+                    <I name="arrow-up" size={13}/>
+                    <span className="text-xs font-semibold">{r.upvotes}</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {tab === "leaderboard" && (
+        <div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            {[
+              { level: "🌱 Beginner Helper", desc: "0-50 pts", color: "#7C9885" },
+              { level: "📚 Study Buddy", desc: "51-150 pts", color: "#5B8DEF" },
+              { level: "🔥 Academic Mentor", desc: "151-400 pts", color: "#F4A259" },
+              { level: "🏆 Top Contributor", desc: "400+ pts", color: "#FF6B5B" },
+            ].map((l,i) => (
+              <div key={i} className="glass rounded-xl p-3 text-center float-in" style={{animationDelay:`${i*50}ms`}}>
+                <p className="text-2xl mb-1">{l.level.split(' ')[0]}</p>
+                <p className="text-xs font-medium text-[#1E1B4B]">{l.level.split(' ').slice(1).join(' ')}</p>
+                <p className="text-[10px] text-[#1E1B4B]/40 mt-0.5">{l.desc}</p>
+              </div>
+            ))}
+          </div>
+          <div className="glass rounded-2xl p-5 shadow-sm">
+            <h3 className="font-display font-semibold text-[#1E1B4B] mb-4">This Week's Top Helpers</h3>
+            <div className="space-y-3">
+              {[
+                { ...ONLINE_STUDENTS[1], pts: 420, answers: 18, best: 6 },
+                { ...ONLINE_STUDENTS[0], pts: 310, answers: 14, best: 4 },
+                { ...ONLINE_STUDENTS[2], pts: 145, answers: 9, best: 2 },
+                { ...ONLINE_STUDENTS[4], pts: 98, answers: 6, best: 1 },
+              ].map((u,i) => (
+                <div key={u.id} className="flex items-center gap-3">
+                  <span className="w-6 text-center font-display font-semibold text-[#1E1B4B]/30">{i+1}</span>
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold text-white" style={{background:u.color}}>{u.avatar}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#1E1B4B]">{u.name}</p>
+                    <LevelBadge level={u.level}/>
+                  </div>
+                  <div className="text-right text-xs text-[#1E1B4B]/40">
+                    <p>{u.answers} answers • {u.best} best</p>
+                  </div>
+                  <span className="font-display font-semibold text-[#FF6B5B] text-sm shrink-0">{u.pts} pts</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Doubt detail modal */}
+      {openDoubt && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setOpenDoubt(null)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium px-2 py-0.5 rounded-lg" style={{background:`${subjectById(openDoubt.subject).color}1A`, color:subjectById(openDoubt.subject).color}}>{subjectById(openDoubt.subject).name}</span>
+                <StatusBadge status={openDoubt.status}/>
+              </div>
+              <button onClick={() => setOpenDoubt(null)} className="text-[#1E1B4B]/30 hover:text-[#1E1B4B]"><I name="x" size={20}/></button>
+            </div>
+            <h2 className="font-display text-lg font-semibold text-[#1E1B4B] mb-2">{openDoubt.title}</h2>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold text-white" style={{background:openDoubt.author.color}}>{openDoubt.author.avatar}</div>
+              <span className="text-sm text-[#1E1B4B]/60">{openDoubt.author.name}</span>
+              <span className="text-xs text-[#1E1B4B]/30">• {openDoubt.time}</span>
+            </div>
+            <p className="text-sm text-[#1E1B4B]/70 mb-4">{openDoubt.desc}</p>
+
+            <div className="border-t border-[var(--line)] pt-4">
+              <p className="text-xs font-semibold text-[#1E1B4B]/40 uppercase tracking-wide mb-3">{openDoubt.replies} Replies</p>
+              {openDoubt.bestAnswer && (
+                <div className="bg-[#7C9885]/10 rounded-xl p-3 mb-3 border border-[#7C9885]/20">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-semibold text-white" style={{background:openDoubt.bestAnswer.color}}>{openDoubt.bestAnswer.avatar}</div>
+                    <span className="text-sm font-medium text-[#1E1B4B]">{openDoubt.bestAnswer.name}</span>
+                    <span className="text-xs bg-[#7C9885] text-white px-2 py-0.5 rounded-full flex items-center gap-1"><I name="trophy" size={10}/> Best Answer</span>
+                  </div>
+                  <p className="text-sm text-[#1E1B4B]/70">Each electron occupies a discrete energy level; in semiconductors the gap between valence and conduction bands is small enough for thermal excitation to bridge it.</p>
+                </div>
+              )}
+              <div className="flex items-center gap-2 mt-3">
+                <input placeholder="Write a reply..." className="flex-1 px-3 py-2 rounded-xl border border-[var(--line)] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/30"/>
+                <button className="px-4 py-2 rounded-xl bg-[#FF6B5B] text-white text-sm font-medium">Reply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New doubt modal */}
+      {showNewDoubt && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowNewDoubt(false)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl" onClick={e=>e.stopPropagation()}>
+            <h2 className="font-display text-lg font-semibold text-[#1E1B4B] mb-4">Ask a Doubt</h2>
+            <div className="space-y-3">
+              <input placeholder="Title — e.g. Need help with Q4" className="w-full px-3 py-2 rounded-xl border border-[var(--line)] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/30"/>
+              <select className="w-full px-3 py-2 rounded-xl border border-[var(--line)] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/30">
+                {SUBJECTS.map(s=><option key={s.id}>{s.name}</option>)}
+              </select>
+              <textarea placeholder="Describe your doubt in detail..." rows={4} className="w-full px-3 py-2 rounded-xl border border-[var(--line)] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/30"/>
+              <button className="w-full py-2 rounded-xl border-2 border-dashed border-[var(--line)] text-sm text-[#1E1B4B]/40 flex items-center justify-center gap-2 hover:bg-[#1E1B4B]/5"><I name="paperclip" size={14}/> Attach image or file</button>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button onClick={()=>setShowNewDoubt(false)} className="flex-1 py-2.5 rounded-xl bg-[#1E1B4B]/5 text-[#1E1B4B] text-sm font-medium">Cancel</button>
+              <button onClick={()=>setShowNewDoubt(false)} className="flex-1 py-2.5 rounded-xl bg-[#FF6B5B] text-white text-sm font-medium">Post Doubt</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- LOGIN ----------
+function Login({ onLogin }) {
+  const [step, setStep] = useState("login");
+  const [form, setForm] = useState({ name: "Aditi Sharma", year: "2nd Year", branch: "Computer Science", semester: "3" });
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{background:"linear-gradient(135deg,#1E1B4B 0%,#2d2870 50%,#1E1B4B 100%)"}}>
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 rounded-full bg-[#FF6B5B]/20 blur-3xl"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 rounded-full bg-[#5B8DEF]/20 blur-3xl"></div>
+
+      <div className="relative glass-dark rounded-3xl p-8 max-w-md w-full text-white shadow-2xl float-in">
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#FF6B5B] to-[#F4A259] flex items-center justify-center font-display font-bold text-2xl mb-4">P</div>
+          <h1 className="font-display text-2xl font-semibold">Pathway</h1>
+          <p className="text-sm text-white/50 mt-1">Your academic journey, organized.</p>
+        </div>
+
+        {step === "login" && (
+          <div>
+            <button onClick={() => setStep("profile")} className="w-full bg-white text-[#1E1B4B] rounded-xl py-3 font-medium flex items-center justify-center gap-3 hover:bg-white/90 transition-colors shadow-lg">
+              <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+              Continue with Google
+            </button>
+            <p className="text-center text-xs text-white/30 mt-6">By continuing, you agree to Pathway's Terms & Privacy Policy.</p>
+          </div>
+        )}
+
+        {step === "profile" && (
+          <div className="space-y-3 float-in">
+            <p className="text-sm text-white/60 mb-4">Welcome! Let's set up your profile.</p>
+            <div>
+              <label className="text-xs text-white/40 mb-1 block">Full Name</label>
+              <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full px-3 py-2.5 rounded-xl bg-white/10 border border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/50 placeholder:text-white/30"/>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-white/40 mb-1 block">Academic Year</label>
+                <select value={form.year} onChange={e=>setForm({...form,year:e.target.value})} className="w-full px-3 py-2.5 rounded-xl bg-white/10 border border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/50">
+                  <option>1st Year</option><option>2nd Year</option><option>3rd Year</option><option>4th Year</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-white/40 mb-1 block">Semester</label>
+                <select value={form.semester} onChange={e=>setForm({...form,semester:e.target.value})} className="w-full px-3 py-2.5 rounded-xl bg-white/10 border border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/50">
+                  {[1,2,3,4,5,6,7,8].map(s=><option key={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-white/40 mb-1 block">Branch / Department</label>
+              <input value={form.branch} onChange={e=>setForm({...form,branch:e.target.value})} className="w-full px-3 py-2.5 rounded-xl bg-white/10 border border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B5B]/50"/>
+            </div>
+            <button onClick={() => onLogin(form)} className="w-full bg-[#FF6B5B] text-white rounded-xl py-3 font-medium hover:bg-[#ff5a48] transition-colors mt-2 shadow-lg">
+              Get Started
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- APP ROOT ----------
+const PAGE_META = {
+  dashboard: { title: "Dashboard", subtitle: "Welcome back! Here's your academic overview." },
+  assignments: { title: "Assignments", subtitle: "Track and manage your coursework." },
+  cas: { title: "Cumulative Assessments", subtitle: "Stay on top of upcoming CAs." },
+  pyqs: { title: "Previous Year Questions", subtitle: "Browse and download past papers." },
+  material: { title: "Study Material", subtitle: "Books, videos, and resources by subject." },
+  calendar: { title: "Academic Calendar", subtitle: "All your deadlines and events in one place." },
+  community: { title: "", subtitle: "" },
+  notifications: { title: "Notifications", subtitle: "Stay updated with reminders and activity." },
+  settings: { title: "Settings", subtitle: "Manage your profile and preferences." },
+};
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [page, setPage] = useState("dashboard");
+  const [collapsed, setCollapsed] = useState(false);
+  const [search, setSearch] = useState("");
+  const [theme, setTheme] = useState("light");
+
+  // Re-render lucide icons after every paint
+  useEffect(() => {
+    if (window.lucide && window.lucide.createIcons) {
+      window.lucide.createIcons();
+    }
+  });  if (!user) {
+    return <Login onLogin={(form) => setUser({ name: form.name, avatar: form.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(), email: "aditi.sharma@college.edu", branch: form.branch, semester: form.semester })} />;
+  }
+
+  const meta = PAGE_META[page];
+  const isCommunity = page === "community";
+
+  return (
+    <div className="min-h-screen flex">
+      <Sidebar page={page} setPage={setPage} collapsed={collapsed} setCollapsed={setCollapsed} user={user} />
+      <main className={`flex-1 transition-all duration-300 ${collapsed ? "ml-20" : "ml-64"} p-4 md:p-8`}>
+        {!isCommunity && <Topbar title={meta.title} subtitle={meta.subtitle} search={search} setSearch={setSearch} user={user} />}
+        {isCommunity && (
+          <div className="flex justify-end mb-2">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5B8DEF] to-[#9B6BFF] flex items-center justify-center font-display font-semibold text-white text-sm shrink-0">{user.avatar}</div>
+          </div>
+        )}
+
+        {page === "dashboard" && <Dashboard setPage={setPage} />}
+        {page === "assignments" && <Assignments />}
+        {page === "cas" && <CAModule />}
+        {page === "pyqs" && <PYQModule />}
+        {page === "material" && <StudyMaterial />}
+        {page === "calendar" && <CalendarModule />}
+        {page === "community" && <HelpEachOther />}
+        {page === "notifications" && <NotificationsModule />}
+        {page === "settings" && <SettingsModule user={user} setUser={setUser} theme={theme} setTheme={setTheme} />}
+      </main>
+    </div>
+  );
+}
+
+// ---------- ERROR BOUNDARY ----------
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error("Render error:", error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{padding: 24, fontFamily: 'monospace', whiteSpace: 'pre-wrap', color: '#FF6B5B', background:'#1E1B4B', minHeight:'100vh'}}>
+          <h2>Something went wrong</h2>
+          <p>{String(this.state.error && this.state.error.message)}</p>
+          <pre>{String(this.state.error && this.state.error.stack)}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+window.addEventListener('error', (e) => {
+  console.error('Global error:', e.error || e.message, e.filename, e.lineno, e.colno);
+});
+
+ReactDOM.createRoot(document.getElementById("root")).render(<ErrorBoundary><App /></ErrorBoundary>);
+</script>
+</body>
+</html>
